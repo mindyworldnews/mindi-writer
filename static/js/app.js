@@ -462,26 +462,31 @@ async function importFromDrive() {
 }
 
 async function* iterateDriveDocs(parentId, token) {
-  // 先 yield 這層的 Google Docs
+  // 這層的 Google Docs（含分頁）
   let pageToken = null;
   do {
     const q = encodeURIComponent(`'${parentId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`);
     const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name)&pageSize=100${pageToken ? '&pageToken=' + pageToken : ''}`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
+    if (data.error) return;
     for (const doc of (data.files || [])) yield doc;
     pageToken = data.nextPageToken || null;
   } while (pageToken);
 
-  // 再遞迴子資料夾
-  const q2 = encodeURIComponent(`'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const subRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q2}&fields=files(id,name)&pageSize=200`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const subData = await subRes.json();
-  for (const sub of (subData.files || [])) {
-    yield* iterateDriveDocs(sub.id, token);
-  }
+  // 子資料夾（含分頁，支援上百個日期資料夾）
+  let folderPageToken = null;
+  do {
+    const q2 = encodeURIComponent(`'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+    const url2 = `https://www.googleapis.com/drive/v3/files?q=${q2}&fields=nextPageToken,files(id,name)&pageSize=200${folderPageToken ? '&pageToken=' + folderPageToken : ''}`;
+    const subRes = await fetch(url2, { headers: { Authorization: `Bearer ${token}` } });
+    const subData = await subRes.json();
+    if (subData.error) break;
+    for (const sub of (subData.files || [])) {
+      yield* iterateDriveDocs(sub.id, token);
+    }
+    folderPageToken = subData.nextPageToken || null;
+  } while (folderPageToken);
 }
 
 function showSetupGuide() { document.getElementById('setupModal').classList.remove('hidden'); }
