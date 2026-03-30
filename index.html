@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>敏迪寫手 MindiWriter</title>
+  <link rel="stylesheet" href="static/css/style.css">
+  <!-- mammoth.js：讀取本機 .docx 檔案 -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+  <!-- Google Identity Services：Google Drive OAuth -->
+  <script src="https://accounts.google.com/gsi/client" async></script>
+</head>
+<body>
+  <div class="app">
+    <!-- 側邊欄 -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">✍️ MindiWriter</div>
+        <p class="tagline">敏迪選讀風格生成器</p>
+      </div>
+
+      <!-- API Key -->
+      <div class="section">
+        <label class="section-label">🔑 API Key</label>
+        <div class="input-group">
+          <input type="password" id="apiKey" placeholder="sk-ant-..." class="input-field">
+          <button class="btn-icon" onclick="toggleApiKey()" title="顯示/隱藏">👁</button>
+        </div>
+        <p class="hint">Anthropic API Key，僅存於本機瀏覽器</p>
+      </div>
+
+      <!-- 風格樣本庫 -->
+      <div class="section">
+        <label class="section-label">📚 風格樣本庫</label>
+        <div class="sample-status">
+          <span class="sample-count">載入中...</span>
+          <button class="btn-sm btn-danger" onclick="clearSamples()">清除</button>
+        </div>
+
+        <!-- 本機資料夾匯入 -->
+        <button class="btn-scan" id="scanBtn" onclick="pickAndScanFolder()">
+          📂 從本機資料夾匯入 .docx
+        </button>
+        <p class="hint" style="margin-top:4px;margin-bottom:10px">選擇資料夾，自動掃描所有 .docx 文章（需 Chrome / Edge）</p>
+
+        <!-- Google Drive 匯入 -->
+        <div class="gdrive-box" id="gdriveBox">
+          <div class="gdrive-header">
+            <span class="gdrive-icon">☁️</span>
+            <span class="gdrive-title">從 Google Drive 匯入</span>
+            <span class="gdrive-status" id="gdriveStatus"></span>
+          </div>
+
+          <!-- 步驟 1：輸入 Client ID -->
+          <div id="stepCredentials" class="gdrive-step">
+            <p class="step-label">① 輸入 Google Client ID</p>
+            <input type="text" id="googleClientId" class="input-field"
+                   placeholder="xxxxx.apps.googleusercontent.com"
+                   style="font-size:11px;margin-bottom:6px">
+            <button class="btn-gdrive-outline" onclick="saveClientId()">儲存 Client ID</button>
+            <p class="hint" style="margin-top:6px">
+              <a href="#" onclick="showSetupGuide(); return false;">如何取得 Client ID？</a>
+            </p>
+          </div>
+
+          <!-- 步驟 2：連接授權 -->
+          <div id="stepAuth" class="gdrive-step hidden">
+            <p class="step-label">② 連接 Google 帳號</p>
+            <button class="btn-gdrive-outline" id="authBtn" onclick="startGoogleAuth()">🔗 授權連接</button>
+          </div>
+
+          <!-- 步驟 3：匯入 -->
+          <div id="stepImport" class="gdrive-step hidden">
+            <div class="gdrive-connected">
+              <span>✅ 已連接</span>
+              <button class="btn-xs" onclick="disconnectGoogle()">斷開</button>
+            </div>
+
+            <!-- 資料夾選擇器 -->
+            <div class="folder-picker">
+              <div class="folder-picker-header">
+                <span id="selectedFolderName">📁 整個 Google Drive</span>
+                <button class="btn-xs" onclick="openFolderPicker()">選擇</button>
+              </div>
+            </div>
+
+            <button class="btn-scan" id="importBtn" onclick="importFromDrive()">
+              ☁️ 開始匯入
+            </button>
+            <p class="hint">已匯入過的文件會自動略過</p>
+          </div>
+        </div>
+
+        <!-- 進度條（共用） -->
+        <div id="uploadProgress" class="upload-progress hidden">
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+          <span id="progressText">處理中...</span>
+        </div>
+      </div>
+
+      <!-- 生成設定 -->
+      <div class="section">
+        <label class="section-label">⚙️ 生成設定</label>
+
+        <div class="setting-row">
+          <span>模型</span>
+          <select id="modelSelect" class="select-sm">
+            <option value="claude-opus-4-6">Opus 4.6（最強）</option>
+            <option value="claude-sonnet-4-6" selected>Sonnet 4.6（省錢）</option>
+            <option value="claude-haiku-4-5-20251001">Haiku 4.5（最快）</option>
+          </select>
+        </div>
+
+        <div class="setting-row" style="margin-top:10px">
+          <span>參考樣本數</span>
+          <select id="sampleCount" class="select-sm">
+            <option value="3">3 篇</option>
+            <option value="5" selected>5 篇</option>
+            <option value="8">8 篇</option>
+            <option value="0">不使用樣本</option>
+          </select>
+        </div>
+
+        <!-- 語氣滑桿 -->
+        <div class="setting-block">
+          <div class="setting-row-label">
+            <span>語氣</span>
+            <span class="tone-label" id="toneLabel">正常</span>
+          </div>
+          <div class="slider-row">
+            <span class="slider-end">嚴肅</span>
+            <input type="range" id="toneSlider" min="1" max="5" value="3" class="slider" oninput="updateToneLabel()">
+            <span class="slider-end">輕鬆</span>
+          </div>
+        </div>
+
+        <!-- 字數上限 -->
+        <div class="setting-block">
+          <div class="setting-row" style="margin-bottom:0">
+            <span>字數上限</span>
+            <div class="wordcount-input-wrap">
+              <input type="number" id="wordCountInput" class="input-field wordcount-input" value="2000" min="100" step="100">
+              <span class="wordcount-unit">字</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 文章格式 -->
+        <div class="setting-block">
+          <div class="setting-row-label"><span>文章格式</span></div>
+          <div class="format-btns">
+            <button class="format-btn active" id="fmtMindi" onclick="setFormat('mindi')">
+              <span class="fmt-icon">敏</span>
+              <span class="fmt-name">敏迪斷行</span>
+              <span class="fmt-desc">一句一行</span>
+            </button>
+            <button class="format-btn" id="fmtNormal" onclick="setFormat('normal')">
+              <span class="fmt-icon">文</span>
+              <span class="fmt-name">正常文章</span>
+              <span class="fmt-desc">多句一段</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 主內容區 -->
+    <main class="main">
+      <div class="editor-panel">
+        <h2 class="panel-title">📝 輸入新聞</h2>
+
+        <div class="form-group">
+          <label for="titleInput">文章標題</label>
+          <input type="text" id="titleInput" class="input-field" placeholder="例：美國對台灣半導體祭出新限制，這對我們意味著什麼？">
+        </div>
+
+        <div class="form-group">
+          <label for="newsInput">新聞原文 <span class="hint">（可貼上多段新聞內容）</span></label>
+          <textarea id="newsInput" class="textarea-field" rows="12" placeholder="貼上新聞原文在這裡..."></textarea>
+        </div>
+
+        <div class="action-row">
+          <button class="btn-primary" id="generateBtn" onclick="generateArticle()">
+            <span class="btn-icon-left">✨</span>生成文章
+          </button>
+          <button class="btn-ghost" onclick="clearAll()">清除</button>
+        </div>
+
+        <!-- 回饋對話框 -->
+        <div class="feedback-box">
+          <div class="feedback-label">💬 對文章有想法？告訴我怎麼調整</div>
+          <div class="feedback-input-row">
+            <textarea id="feedbackInput" class="feedback-textarea" placeholder="例：語氣再輕鬆一點、多說明背景、結尾改得更有力..." rows="3" onkeydown="handleFeedbackKey(event)"></textarea>
+            <button class="btn-feedback-send" id="feedbackBtn" onclick="sendFeedback()">送出</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="output-panel">
+        <div class="output-header">
+          <h2 class="panel-title">📖 敏迪風格文章</h2>
+          <div class="output-actions" id="outputActions" style="display:none">
+            <button class="btn-sm" onclick="copyOutput()">複製</button>
+          </div>
+        </div>
+
+        <div id="outputArea" class="output-area">
+          <div class="output-placeholder">
+            <div class="placeholder-icon">✍️</div>
+            <p>填寫左側的標題和新聞內容，<br>按下「生成文章」就會在這裡出現敏迪風格的文章</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Folder Picker Modal -->
+  <div id="folderModal" class="modal hidden">
+    <div class="modal-box" style="width:420px">
+      <div class="modal-header">
+        <h3>選擇 Google Drive 資料夾</h3>
+        <button class="modal-close" onclick="closeFolderPicker()">✕</button>
+      </div>
+      <div class="modal-body" style="padding:0">
+        <div class="folder-breadcrumb" id="folderBreadcrumb">
+          <button class="crumb" onclick="navigateFolder('root', '整個 Drive')">整個 Drive</button>
+        </div>
+        <div id="folderList" class="folder-list">
+          <div class="folder-loading">載入中...</div>
+        </div>
+        <div class="folder-modal-footer">
+          <button class="btn-ghost" onclick="closeFolderPicker()">取消</button>
+          <button class="btn-primary" onclick="confirmFolder()" style="padding:8px 16px;font-size:13px">選擇此資料夾</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Setup Guide Modal -->
+  <div id="setupModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>如何取得 Google OAuth Client ID</h3>
+        <button class="modal-close" onclick="hideSetupGuide()">✕</button>
+      </div>
+      <div class="modal-body">
+        <ol class="setup-steps">
+          <li>前往 <strong>Google Cloud Console</strong>（console.cloud.google.com）</li>
+          <li>建立新專案（或選既有專案）</li>
+          <li>左側 → <strong>API 和服務</strong> → 搜尋並啟用 <strong>Google Drive API</strong></li>
+          <li>左側 → <strong>憑證</strong> → 點「建立憑證」→ 選 <strong>OAuth 用戶端 ID</strong></li>
+          <li>應用程式類型選 <strong>網頁應用程式（Web application）</strong></li>
+          <li>在「授權的 JavaScript 來源」加入：<code>https://mindyworldnews.github.io</code></li>
+          <li>建立後，複製 <strong>用戶端 ID</strong>（結尾為 <code>.apps.googleusercontent.com</code>）</li>
+          <li>貼到上方欄位並點「儲存 Client ID」</li>
+        </ol>
+        <p class="hint" style="margin-top:12px">⚠️ 首次授權時 Google 可能顯示「未驗證的應用程式」，點「進階」→「前往（不安全）」即可繼續。</p>
+        <p class="hint" style="margin-top:6px">💡 Client ID 只是識別用，不是密碼，存在瀏覽器裡是安全的。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 通知 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="static/js/app.js"></script>
+</body>
+</html>

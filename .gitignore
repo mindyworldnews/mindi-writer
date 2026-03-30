@@ -1,0 +1,7 @@
+# 系統
+.DS_Store
+Thumbs.db
+
+# 編輯器
+.vscode/
+*.swp
