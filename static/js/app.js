@@ -469,7 +469,7 @@ async function* iterateDriveDocs(parentId, token) {
     const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name)&pageSize=100${pageToken ? '&pageToken=' + pageToken : ''}`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
-    if (data.error) return;
+    if (data.error) throw new Error(`Drive API 錯誤：${data.error.code} ${data.error.message}`);
     for (const doc of (data.files || [])) yield doc;
     pageToken = data.nextPageToken || null;
   } while (pageToken);
@@ -481,7 +481,7 @@ async function* iterateDriveDocs(parentId, token) {
     const url2 = `https://www.googleapis.com/drive/v3/files?q=${q2}&fields=nextPageToken,files(id,name)&pageSize=200${folderPageToken ? '&pageToken=' + folderPageToken : ''}`;
     const subRes = await fetch(url2, { headers: { Authorization: `Bearer ${token}` } });
     const subData = await subRes.json();
-    if (subData.error) break;
+    if (subData.error) throw new Error(`Drive API 錯誤（子資料夾）：${subData.error.code} ${subData.error.message}`);
     for (const sub of (subData.files || [])) {
       yield* iterateDriveDocs(sub.id, token);
     }
