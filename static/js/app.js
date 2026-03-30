@@ -599,6 +599,15 @@ function buildSystemPrompt(samples) {
       prompt += `---【範本 ${i + 1}】---\n${s}\n\n`;
     });
   }
+
+  const styleNotes = JSON.parse(localStorage.getItem('mindi_style_notes') || '[]');
+  if (styleNotes.length > 0) {
+    prompt += '\n\n## 根據過去的修改紀錄，請特別注意以下寫作偏好：\n\n';
+    styleNotes.forEach((n, i) => {
+      prompt += `---【風格筆記 ${i + 1}（${n.date}）】---\n${n.text}\n\n`;
+    });
+  }
+
   return prompt;
 }
 
@@ -632,6 +641,7 @@ function setFormat(fmt) {
 async function generateArticle() {
   const apiKey = document.getElementById('apiKey').value.trim();
   const title = document.getElementById('titleInput').value.trim();
+  const keyPoints = document.getElementById('keyPointsInput').value.trim();
   const newsContent = document.getElementById('newsInput').value.trim();
   const sampleCount = parseInt(document.getElementById('sampleCount').value);
   const model = document.getElementById('modelSelect').value;
@@ -672,7 +682,7 @@ ${newsContent}
 **格式要求：**${formatInstructions[currentFormat]}
 
 **字數限制：**全文控制在 ${wordCount} 字以內，寧可精簡也不要超字。
-
+${keyPoints ? '\n**務必包含的重點（這些內容一定要出現在文章中）：**\n' + keyPoints + '\n' : ''}
 請記得：
 - 解釋清楚「這件事為什麼重要」
 - 加入適當的比喻或生活化的說法
@@ -694,6 +704,12 @@ ${newsContent}
       outputArea.className = 'output-area';
       outputActions.style.display = 'flex';
       conversationHistory = [{ role: 'assistant', content: outputText }];
+      // 顯示學習區塊
+      const ls = document.getElementById('learningSection');
+      ls.classList.remove('hidden');
+      document.getElementById('learningInput').value = '';
+      document.getElementById('learningResult').classList.add('hidden');
+      document.getElementById('learningResult').textContent = '';
       document.getElementById('feedbackInput').focus();
       btn.disabled = false;
       btn.innerHTML = '<span class="btn-icon-left">✨</span>生成文章';
@@ -771,9 +787,83 @@ async function sendFeedback() {
   );
 }
 
+// ===== 學習回饋 =====
+async function submitLearning() {
+  const userVersion = document.getElementById('learningInput').value.trim();
+  if (!userVersion) { showToast('請貼上你的修改版本', 'error'); return; }
+
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { showToast('請先輸入 API Key', 'error'); return; }
+
+  const aiVersions = conversationHistory.filter(m => m.role === 'assistant');
+  const aiVersion = aiVersions[aiVersions.length - 1]?.content || '';
+  if (!aiVersion) { showToast('找不到 AI 生成的文章', 'error'); return; }
+
+  const btn = document.getElementById('learningBtn');
+  const resultEl = document.getElementById('learningResult');
+  btn.disabled = true;
+  btn.textContent = '分析中...';
+  resultEl.classList.remove('hidden');
+  resultEl.textContent = '分析中...';
+
+  const model = document.getElementById('modelSelect').value;
+  const title = document.getElementById('titleInput').value.trim();
+
+  const prompt = `以下是 AI 生成的文章：
+---
+${aiVersion}
+---
+
+以下是用戶最終修改後的版本：
+---
+${userVersion}
+---
+
+請分析這兩個版本的差異，找出：
+1. 用戶做了哪些具體修改（結構、語氣、措辭、增刪了什麼內容）
+2. 這些修改反映了哪些寫作偏好
+3. 未來生成文章時應該注意哪些事項
+
+請用條列式、簡潔的繁體中文回答，作為寫作風格指引。`;
+
+  let analysisText = '';
+
+  await callClaude(
+    apiKey, model,
+    '你是一個寫作風格分析師，專門分析文章差異並提供改進建議。',
+    [{ role: 'user', content: prompt }],
+    (text) => {
+      analysisText += text;
+      resultEl.textContent = analysisText;
+    },
+    async () => {
+      btn.disabled = false;
+      btn.textContent = '送出學習';
+      const sampleName = `學習_${title || '文章'}_${new Date().toLocaleDateString('zh-TW')}`;
+      await dbSaveSample(sampleName, userVersion);
+      const count = await dbCountSamples();
+      updateSampleCount(count);
+      saveStyleNote(analysisText);
+      showToast('學習完成！用戶版本已加入樣本庫', 'success');
+    },
+    (errMsg) => {
+      btn.disabled = false;
+      btn.textContent = '送出學習';
+      resultEl.textContent = '分析失敗：' + errMsg;
+    }
+  );
+}
+
+function saveStyleNote(note) {
+  const notes = JSON.parse(localStorage.getItem('mindi_style_notes') || '[]');
+  notes.unshift({ text: note.slice(0, 1000), date: new Date().toLocaleDateString('zh-TW') });
+  localStorage.setItem('mindi_style_notes', JSON.stringify(notes.slice(0, 5)));
+}
+
 // ===== 其他功能 =====
 function clearAll() {
   document.getElementById('titleInput').value = '';
+  document.getElementById('keyPointsInput').value = '';
   document.getElementById('newsInput').value = '';
   const outputArea = document.getElementById('outputArea');
   outputArea.className = 'output-area';
@@ -784,6 +874,9 @@ function clearAll() {
     </div>`;
   document.getElementById('outputActions').style.display = 'none';
   document.getElementById('feedbackInput').value = '';
+  document.getElementById('learningSection').classList.add('hidden');
+  document.getElementById('learningInput').value = '';
+  document.getElementById('learningResult').classList.add('hidden');
   conversationHistory = [];
 }
 

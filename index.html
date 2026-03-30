@@ -176,8 +176,13 @@
         </div>
 
         <div class="form-group">
+          <label for="keyPointsInput">重點提醒 <span class="hint">（AI 務必提到的內容，可不填）</span></label>
+          <textarea id="keyPointsInput" class="textarea-field key-points-field" rows="3" placeholder="例：一定要提到對台灣的影響、要解釋為什麼這件事和普通人有關、結尾加入正面展望..."></textarea>
+        </div>
+
+        <div class="form-group">
           <label for="newsInput">新聞原文 <span class="hint">（可貼上多段新聞內容）</span></label>
-          <textarea id="newsInput" class="textarea-field" rows="12" placeholder="貼上新聞原文在這裡..."></textarea>
+          <textarea id="newsInput" class="textarea-field" rows="10" placeholder="貼上新聞原文在這裡..."></textarea>
         </div>
 
         <div class="action-row">
@@ -210,6 +215,20 @@
             <div class="placeholder-icon">✍️</div>
             <p>填寫左側的標題和新聞內容，<br>按下「生成文章」就會在這裡出現敏迪風格的文章</p>
           </div>
+        </div>
+
+        <!-- 學習回饋區塊 -->
+        <div id="learningSection" class="learning-box hidden">
+          <div class="learning-header">
+            <span class="learning-label">🎓 學習模式</span>
+            <span class="learning-hint">把你最終修改好的文章版本貼在這裡，讓 AI 從差異中學習你的偏好</span>
+          </div>
+          <textarea id="learningInput" class="learning-textarea" rows="8" placeholder="把你最後寫好／修改後的文章版本貼在這裡..."></textarea>
+          <div class="learning-actions">
+            <button class="btn-feedback-send" id="learningBtn" onclick="submitLearning()">送出學習</button>
+            <span class="learning-hint-sm">送出後，這個版本也會自動加入風格樣本庫</span>
+          </div>
+          <div id="learningResult" class="learning-result hidden"></div>
         </div>
       </div>
     </main>

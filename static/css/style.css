@@ -710,6 +710,72 @@ body {
 .btn-feedback-send:hover { background: var(--accent-hover); }
 .btn-feedback-send:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ===== Key Points Field ===== */
+.key-points-field {
+  border-color: rgba(124, 106, 247, 0.4);
+  background: rgba(124, 106, 247, 0.05);
+}
+.key-points-field:focus { border-color: var(--accent); }
+
+/* ===== Learning Box ===== */
+.learning-box {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.learning-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.learning-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.learning-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+.learning-textarea {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.learning-textarea:focus { border-color: var(--accent); }
+.learning-textarea::placeholder { color: var(--text-3); }
+.learning-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.learning-hint-sm {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.learning-result {
+  padding: 14px;
+  background: var(--accent-light);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
