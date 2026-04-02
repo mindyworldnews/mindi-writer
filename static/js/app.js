@@ -496,7 +496,7 @@ function hideSetupGuide() { document.getElementById('setupModal').classList.add(
 async function callClaude(apiKey, model, systemPrompt, messages, onText, onDone, onError) {
   let response;
   try {
-    response = await fetch('https://api.anthropic.com/v1/messages', {
+    response = await fetch('https://mindy-writer.mindyworldnews.workers.dev', {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
@@ -912,7 +912,7 @@ async function testApiConnection() {
   result.textContent = '測試中...';
   result.style.color = 'var(--text-3)';
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://mindy-writer.mindyworldnews.workers.dev', {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
