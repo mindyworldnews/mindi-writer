@@ -899,3 +899,50 @@ function showToast(msg, type = '') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.className = 'toast hidden'; }, 3000);
 }
+
+// ===== API 連線測試 =====
+async function testApiConnection() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const result = document.getElementById('apiTestResult');
+  if (!apiKey) {
+    result.textContent = '⚠️ 請先輸入 API Key';
+    result.style.color = 'var(--danger)';
+    return;
+  }
+  result.textContent = '測試中...';
+  result.style.color = 'var(--text-3)';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-allow-browser': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 5,
+        messages: [{ role: 'user', content: 'hi' }],
+      })
+    });
+    if (res.ok) {
+      result.textContent = '✅ 連線成功！API Key 有效';
+      result.style.color = 'var(--success)';
+    } else if (res.status === 401) {
+      result.textContent = '❌ API Key 無效或已過期';
+      result.style.color = 'var(--danger)';
+    } else {
+      const err = await res.json().catch(() => ({}));
+      result.textContent = `❌ API 錯誤 ${res.status}：${err.error?.message || ''}`;
+      result.style.color = 'var(--danger)';
+    }
+  } catch (e) {
+    if (e.message === 'Failed to fetch') {
+      result.innerHTML = '❌ CORS／網路問題<br>請確認：1) 使用 Chrome/Edge 2) 沒有擴充套件封鎖 3) 可嘗試無痕視窗';
+    } else {
+      result.textContent = '❌ ' + e.message;
+    }
+    result.style.color = 'var(--danger)';
+  }
+}

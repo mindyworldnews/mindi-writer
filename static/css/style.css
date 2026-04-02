@@ -87,6 +87,20 @@ body {
   margin-top: 5px;
 }
 
+.btn-test-api {
+  width: 100%;
+  margin-top: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-test-api:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ===== Form Controls ===== */
 .input-group {
   display: flex;
