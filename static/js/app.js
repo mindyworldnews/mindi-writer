@@ -561,8 +561,36 @@ async function callClaude(apiKey, model, systemPrompt, messages, onText, onDone,
   }
 }
 
+// ===== 中央社譯名資料庫 =====
+let cnaNameDb = null;
+
+async function loadCnaNameDb() {
+  if (cnaNameDb !== null) return cnaNameDb;
+  try {
+    const resp = await fetch('static/data/names_db.json');
+    if (!resp.ok) { cnaNameDb = {}; return cnaNameDb; }
+    const data = await resp.json();
+    cnaNameDb = data.names || {};
+  } catch (e) {
+    cnaNameDb = {};
+  }
+  return cnaNameDb;
+}
+
+// 從輸入文字中找出 DB 裡有對應的中文詞，回傳「中文→英文」對照列表
+function findRelevantNames(inputText, db) {
+  const found = {};
+  for (const [zh, en] of Object.entries(db)) {
+    if (inputText.includes(zh)) {
+      found[zh] = en;
+    }
+  }
+  return found;
+}
+
 // ===== System Prompt 建構 =====
-function buildSystemPrompt(samples) {
+async function buildSystemPrompt(samples, inputText = '') {
+  const db = await loadCnaNameDb();
   let prompt = `你是「敏迪選讀」的寫手，請模仿以下風格特徵來撰寫文章：
 
 ## 敏迪選讀風格特徵
@@ -618,6 +646,17 @@ function buildSystemPrompt(samples) {
   - 不用「搞定」「搞清楚」→ 用「解決」「弄清楚」；不用「点赞」→ 用「按讚」
 - 若某個詞彙**收錄於台灣教育部重編國語辭典**，則可以使用，不受此限制
 `;
+
+  // 注入從中央社資料庫找到的相關譯名
+  const relevantNames = findRelevantNames(inputText, db);
+  const nameEntries = Object.entries(relevantNames);
+  if (nameEntries.length > 0) {
+    prompt += '\n\n## 本文涉及人名／地名的中央社標準譯名（必須完全依照這個對照表）\n\n';
+    nameEntries.forEach(([zh, en]) => {
+      prompt += `- ${zh}（${en}）\n`;
+    });
+    prompt += '\n注意：以上中文名稱是中央社的正式用法，請勿改用其他譯名。\n';
+  }
 
   if (samples.length > 0) {
     prompt += '\n\n## 以下是敏迪選讀的實際文章範本，請參考其寫作風格：\n\n';
@@ -695,7 +734,7 @@ async function generateArticle() {
   outputArea.appendChild(cursor);
 
   const samples = await dbGetSamples(sampleCount);
-  const systemPrompt = buildSystemPrompt(samples);
+  const systemPrompt = await buildSystemPrompt(samples, `${title} ${newsContent}`);
   const userMessage = `請根據以下新聞內容，用敏迪選讀的風格寫一篇文章。
 
 **文章標題：**${title}
